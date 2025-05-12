@@ -24,6 +24,9 @@ parser.add_argument(
 parser.add_argument(
     '--devices', type=str, nargs='+', default=['cuda:0'],
     help='which devices to use on local machine')
+parser.add_argument(
+    "--debug", action="store_true",
+    help="run in debug mode (no distributed, no multiprocessing)")
 
 
 def process_main(rank, fname, world_size, devices):
@@ -59,9 +62,16 @@ def process_main(rank, fname, world_size, devices):
 if __name__ == '__main__':
     args = parser.parse_args()
     num_gpus = len(args.devices)
-    mp.set_start_method('spawn')
-    for rank in range(num_gpus):
-        mp.Process(
-            target=process_main,
-            args=(rank, args.fname, num_gpus, args.devices)
-        ).start()
+
+    if args.debug:
+        print('Running in debug mode')
+
+        # Run in debug mode
+        process_main(0, args.fname, num_gpus, args.devices)
+    else:
+        mp.set_start_method('spawn')
+        for rank in range(num_gpus):
+            mp.Process(
+                target=process_main,
+                args=(rank, args.fname, num_gpus, args.devices)
+            ).start()
