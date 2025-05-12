@@ -64,7 +64,7 @@ torch.backends.cudnn.benchmark = True
 pp = pprint.PrettyPrinter(indent=4)
 
 
-def main(args_eval, resume_preempt=False):
+def main(args_eval, resume_preempt=False, debug=False):
 
     # ----------------------------------------------------------------------- #
     #  PASSED IN PARAMS FROM CONFIG FILE
@@ -193,7 +193,13 @@ def main(args_eval, resume_preempt=False):
         ckpt = torch.load(eval_ckpt, map_location='cpu', weights_only=True)
         state_dict = {k.replace("module.", ""): v for k, v in ckpt['classifier'].items()}
         msg = classifier.load_state_dict(state_dict)
-        print(f'Loaded eval checkpoint with msg: {msg}')
+        print(f'Loaded eval checkpoint with msg: {msg} .........')
+
+    save_feat = args_eval.get('save_feat', False)
+    feat_dir = args_eval.get('feat_dir', None)
+    if save_feat:
+        # Remove the linear layer from the classifier
+        classifier.linear = torch.nn.Identity()
 
     train_loader = make_dataloader(
         dataset_type=dataset_type,
@@ -237,7 +243,9 @@ def main(args_eval, resume_preempt=False):
         warmup=warmup,
         num_epochs=num_epochs,
         use_bfloat16=use_bfloat16)
-    classifier = DistributedDataParallel(classifier, static_graph=True)
+    
+    if not debug:
+        classifier = DistributedDataParallel(classifier, static_graph=True)
 
     # -- load training checkpoint
     start_epoch = 0
@@ -327,8 +335,11 @@ def main(args_eval, resume_preempt=False):
             wd_scheduler=wd_scheduler,
             data_loader=val_loader,
             use_bfloat16=use_bfloat16,
+            save_feat=save_feat,
+            feat_dir=feat_dir,
         )
-        logger.info('[%5d] test: %.3f%%' % (0, val_acc))
+        if not save_feat:
+            logger.info('[%5d] test: %.3f%%' % (0, val_acc))
 
 
 def run_one_epoch(
@@ -345,6 +356,8 @@ def run_one_epoch(
     num_spatial_views,
     num_temporal_views,
     attend_across_segments,
+    save_feat=False,
+    feat_dir=None,
 ):
 
     classifier.train(mode=training)
@@ -380,6 +393,27 @@ def run_one_epoch(
                     outputs = [classifier(o) for o in outputs]
                 else:
                     outputs = [[classifier(ost) for ost in os] for os in outputs]
+            
+            # Save feat and continue if save_feat is True
+            if save_feat:
+
+                # Take average across the spatial crops
+                z = torch.stack(outputs).mean(dim=0)
+
+                assert feat_dir is not None, \
+                    "feat_dir must be provided when save_feat is True"
+                os.makedirs(feat_dir, exist_ok=True)
+
+                paths = data[3]
+                file_ids = [os.path.basename(p).split(".")[0] for p in paths]
+
+                for i in range(len(file_ids)):
+                    file_id = file_ids[i]
+                    feat = z[i].cpu().numpy()
+                    feat_path = os.path.join(feat_dir, f"{file_id}.npy")
+                    np.save(feat_path, feat)
+                
+                continue
 
         # Compute loss
         if attend_across_segments:

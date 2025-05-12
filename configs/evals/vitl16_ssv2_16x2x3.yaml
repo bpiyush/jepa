@@ -5,8 +5,8 @@ eval_name: video_classification_frozen
 resume_checkpoint: false
 data:
   dataset_train: ./data_files/ssv2/train.csv
-  # dataset_val: ./data_files/ssv2/validation.csv
-  dataset_val: ./data_files/ssv2/test.csv
+  dataset_val: ./data_files/ssv2/validation.csv
+  # dataset_val: ./data_files/ssv2/test.csv
   dataset_type: VideoDataset
   num_classes: 174
   frames_per_clip: 16
@@ -41,3 +41,5 @@ pretrain:
 # These are added to only evaluate attentive probes
 eval_only: true
 eval_ckpt: /work/piyush/pretrained_checkpoints/VJEPA/vitl16-ssv2-probe.pth.tar
+save_feat: true
+feat_dir: /scratch/shared/beegfs/piyush/datasets/SSv2/features/videojepa/vit_large_attentive_probe-ssv2

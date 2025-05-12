@@ -29,7 +29,7 @@ parser.add_argument(
     help="run in debug mode (no distributed, no multiprocessing)")
 
 
-def process_main(rank, fname, world_size, devices):
+def process_main(rank, fname, world_size, devices, debug):
     import os
     os.environ['CUDA_VISIBLE_DEVICES'] = str(devices[rank].split(':')[-1])
 
@@ -56,7 +56,7 @@ def process_main(rank, fname, world_size, devices):
     logger.info(f'Running... (rank: {rank}/{world_size})')
 
     # Launch the eval with loaded config
-    eval_main(params['eval_name'], args_eval=params)
+    eval_main(params['eval_name'], args_eval=params, debug=debug)
 
 
 if __name__ == '__main__':
@@ -67,11 +67,11 @@ if __name__ == '__main__':
         print('Running in debug mode')
 
         # Run in debug mode
-        process_main(0, args.fname, num_gpus, args.devices)
+        process_main(0, args.fname, num_gpus, args.devices, debug=True)
     else:
         mp.set_start_method('spawn')
         for rank in range(num_gpus):
             mp.Process(
                 target=process_main,
-                args=(rank, args.fname, num_gpus, args.devices)
+                args=(rank, args.fname, num_gpus, args.devices, False),
             ).start()
