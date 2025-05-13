@@ -133,6 +133,22 @@ class VideoDataset(torch.utils.data.Dataset):
                 # labels += list(data.values[:, 1])
 
                 data = pd.read_csv(data_path, delimiter=",")
+
+                """
+                # Filter features that are already saved
+                data['id'] = data['video_path'].apply(
+                    lambda x: os.path.basename(x).split('.')[0]
+                )
+                data['feat_path'] = data['id'].apply(
+                    lambda x: os.path.join(
+                        "/scratch/shared/beegfs/piyush/datasets/SSv2/features/videojepa/vit_large_attentive_probe-ssv2",
+                        f"{x}.npy"
+                    )
+                )
+                data = data[data['feat_path'].apply(lambda x: not os.path.exists(x))]
+                print("Filtered features: ", len(data))
+                """
+
                 samples += list(data.iloc[:, 0])
                 labels += list(data.iloc[:, 1])
 

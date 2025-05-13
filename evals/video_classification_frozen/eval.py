@@ -363,13 +363,15 @@ def run_one_epoch(
     classifier.train(mode=training)
     criterion = torch.nn.CrossEntropyLoss()
     top1_meter = AverageMeter()
-    for itr, data in enumerate(data_loader):
+    import tqdm
+    for itr, data in enumerate(tqdm.tqdm(data_loader, desc="Running epoch")):
 
         if training:
             scheduler.step()
             wd_scheduler.step()
 
-        with torch.cuda.amp.autocast(dtype=torch.float16, enabled=use_bfloat16):
+        # with torch.cuda.amp.autocast(dtype=torch.float16, enabled=use_bfloat16):
+        with torch.amp.autocast('cuda', dtype=torch.float16, enabled=use_bfloat16):
 
             # Load data and put on GPU
             clips = [
@@ -458,7 +460,7 @@ def load_checkpoint(
     scaler
 ):
     try:
-        checkpoint = torch.load(r_path, map_location=torch.device('cpu'))
+        checkpoint = torch.load(r_path, map_location=torch.device('cpu'), weights_only=True)
         epoch = checkpoint['epoch']
 
         # -- loading encoder
@@ -487,7 +489,7 @@ def load_pretrained(
     checkpoint_key='target_encoder'
 ):
     logger.info(f'Loading pretrained model from {pretrained}')
-    checkpoint = torch.load(pretrained, map_location='cpu')
+    checkpoint = torch.load(pretrained, map_location='cpu', weights_only=True)
     try:
         pretrained_dict = checkpoint[checkpoint_key]
     except Exception:
